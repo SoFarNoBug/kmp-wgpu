@@ -1,42 +1,35 @@
-# kmp-wgpu（ADR 0013 · v1 / v1.1）
+# kmp-wgpu（KMP 原语模块）
 
-与 Holm / Kuikly **无关**的跨端 wgpu **原语库**（Kotlin 脸）。
+跨端 wgpu **原语**（KMP 公共 API）。路人说明见根 [README.md](../README.md)；接入见 [docs/guide.md](../docs/guide.md)；构建发版见 [开发者文档](../CONTRIBUTING.md)。
 
-## 方案 B（已锁定）
+## 设计要点
 
-- **类型**：近 wgpu 1:1 概念（`Device` / `Queue` / `ShaderModule` / …）
-- **桥接**：粗粒度能力块（一次 FullscreenPass.tick = encode + submit + present）；**禁止**逐 `draw` JNI
+- **类型**：贴近 wgpu 概念（`Device` / `Queue` / `ShaderModule` / …）
+- **桥接**：粗粒度能力块（一次调用完成 encode + submit；Present 另加 present）
 - **Present**：可选，见 [`../kmp-wgpu-surface`](../kmp-wgpu-surface)
 
-## v1 支持
+## 当前能力
 
 | API | 状态 |
 | --- | --- |
-| `WgpuRuntime` / `Instance` / `Device` / `Queue` | 有（Device=Session 句柄） |
-| `CommandEncoder.recordFullscreenTick` | 壳；提交走 `FullscreenPass.tick` |
-| Buffer / Texture / BindGroup / Pipeline 类型 | 壳占位 |
-| 逐条 CommandEncoder FFI | **不做**（方案 C，另 ADR） |
+| `WgpuRuntime` / `Instance` / `Device` / `Queue` | 有（Device = Session 句柄） |
+| `CommandEncoder.recordFullscreenTick` | 壳；真正提交走 `FullscreenPass.tick` |
+| Buffer / Texture / BindGroup / Pipeline | 壳占位（规划中补齐） |
+| 逐条 CommandEncoder FFI | **非目标**（另议） |
 
-## v1.1 · Headless Compute + 回读
+## Headless Compute + 回读
 
 | API | 说明 |
 | --- | --- |
 | `createHeadlessDevice` / `Async` | 无 Surface 的 Device（与 Present Session **分表**） |
 | `HeadlessDevice.computeReadback` / `Async` | 一次粗块：WGSL + `FloatArray` → `FloatArray` |
-| `ComputeReadbackSample` | 默认可复现：`out[i]=in[i]*2`（`COMPUTE_SAMPLE_DOUBLE_WGSL`） |
+| `ComputeReadbackSample` | 默认可复现：`out[i]=in[i]*2` |
 
-- Android：
-  - 同步 API：JNI 内 `pollster::block_on`；**仅短样本**（Demo 默认 8×f32）
-  - `*Async`：单线程池 `kmp-wgpu-headless` 执行；`onDone` **可能不在调用线程**（UI/Kuikly 须自行回线程）
-  - `HeadlessDevice.destroy`：幂等（二次 no-op）
-- H5：`window.__kmpWgpu.createHeadless()` → `HeadlessComputeSession`；只用 Async 路径
-- **勿**对 headless 句柄调用 `tick` / `setCustomFs` / Surface resize
-- 示例 WGSL：Rust `SAMPLE_DOUBLE_WGSL` 与 Kotlin `COMPUTE_SAMPLE_DOUBLE_WGSL` 双份；改一处须同步另一处
-
-## 非本模块
-
-`setCustomFs` / `setScene` / `liquid*` / `playing` 属 **Holm 适配**，Kotlin 面在 `:holm-renderer-wgpu`（`HolmAndroidJni` / `HolmFullscreenPass`），**不在** `com.jlj.kmp.wgpu`。
+- Android：同步仅适合**短样本**；大负载用 `*Async`（回调可能不在 UI 线程）
+- H5：只用 Async
+- **勿**对 headless 句柄调用 `tick` / `setFragmentShader` / Surface resize
+- 示例 WGSL 与 Rust `SAMPLE_DOUBLE_WGSL` 双份，改一处须同步
 
 ## Native
 
-Rust crate 目录为 `kmp-wgpu-native/`，身份 **`kmp_wgpu_native`**；产物 `libkmp_wgpu_native.so`  / `kmp_wgpu_native*.wasm`。
+实现在 `kmp-wgpu-native/`，产物 `libkmp_wgpu_native.so` / `kmp_wgpu_native*.wasm` / xcframework。

@@ -1,23 +1,26 @@
-# kmp-wgpu sample（无 Holm / Kuikly）
+# kmp-wgpu sample
 
-ADR 0015 · 独立仓冒烟入口。
+独立仓冒烟入口（不依赖上层业务壳）。
 
 ## Headless Compute
 
 ```kotlin
 import com.jlj.kmp.wgpu.ComputeReadbackSample
 
-// Android：见 ComputeReadbackSample / createHeadlessDeviceAsync
-// 期望：FloatArray(8) { it * 2f } 量级结果（×2 WGSL）
+// 见 ComputeReadbackSample / createHeadlessDeviceAsync
+// 期望：输入 ×2（示例 WGSL）
+ComputeReadbackSample.run { result ->
+    result.onSuccess { /* … */ }
+}
 ```
 
 ## Present（FullscreenPass）
 
-1. 用 `AndroidSurfaces.create(surface, w, h)` / `JsSurfaces.create(...)` 拿到 `GpuSurface`
+1. `AndroidSurfaces.create(surface, w, h)` / `JsSurfaces.create(...)` → `GpuSurface`
 2. `FullscreenPass(gpu).setFragmentShader(solidFs)`
 3. 每帧 `tick(dt)`
 
-示例片元（solid）：
+示例片元：
 
 ```wgsl
 @fragment
@@ -26,4 +29,4 @@ fn fs_main(in: VsOut) -> @location(0) vec4f {
 }
 ```
 
-零 Kuikly / Holm 依赖；验收入口见独立仓 `sample/`。
+更多接入说明：[docs/guide.md](../docs/guide.md)。
