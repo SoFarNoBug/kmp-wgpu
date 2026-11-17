@@ -18,7 +18,7 @@
 | 语言 | Kotlin Multiplatform 脸 + Rust/`wgpu` 实现 |
 | License | MIT |
 
-> **路人读本页。** 完整接入 → [docs/guide.md](docs/guide.md)。构建 / 发版 → [开发者文档](CONTRIBUTING.md)。
+> **路人读本页。** 完整接入 / **API 全表**（Headless · FullscreenPass · 工厂 · 类型壳）→ [docs/guide.md](docs/guide.md)。构建 / 发版 → [开发者文档](CONTRIBUTING.md)。
 
 ---
 
@@ -123,7 +123,7 @@ dependencies {
 | 鸿蒙 | `ohpm install @jlj/kmp-wgpu-native@0.1.1` |
 | H5 | `npm i @jlj/kmp-wgpu-native@0.1.0`（或拷贝 js + wasm） |
 
-完整步骤与避坑 → [docs/guide.md](docs/guide.md)。
+完整步骤、**每个公开 API 说明**、包体积与避坑 → [docs/guide.md](docs/guide.md)。
 
 ---
 
@@ -265,8 +265,8 @@ A. **以真机 `backendId()` 为准。** Mate 60 Pro 实测为 **OpenGL ES 3**�
 **Q. Android 是不是一定 Vulkan？**  
 A. **不一定。** 本仓同时启用 Vulkan 与 GLES，由适配器择优。
 
-**Q. 详细接入、避坑去哪看？**  
-A. → [docs/guide.md](docs/guide.md)。编 Rust / 发版 → [开发者文档](CONTRIBUTING.md)。
+**Q. 详细接入、每个 API 什么意思、避坑去哪看？**  
+A. → [docs/guide.md](docs/guide.md)（含 Headless / Present / `FullscreenPass` / 工厂参数表）。编 Rust / 发版 → [开发者文档](CONTRIBUTING.md)。
 
 ---
 

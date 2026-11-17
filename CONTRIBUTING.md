@@ -83,7 +83,7 @@ kmp.wgpu.local=true
 | 读者 | 文件 |
 |---|---|
 | 路人 | 根 `README.md` |
-| 接入 | `docs/guide.md` |
+| 接入 | `docs/guide.md`（含公开 API 全表，对齐 Holm guide 粒度） |
 | 开发者 / 维护 | 本文件 |
 
 根 README 场景表用 **`已有` / `规划中` / `非目标`**；后端表以运行时 `backendId()` 为准：鸿蒙写清 GLES 实测与 Vulkan 适配缺口，Android **不写死** Vulkan。
