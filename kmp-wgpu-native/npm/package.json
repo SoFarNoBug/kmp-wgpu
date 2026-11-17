@@ -1,0 +1,11 @@
+{
+  "name": "@jlj/kmp-wgpu-native",
+  "version": "0.1.0",
+  "description": "kmp_wgpu_native wasm glue for browsers (ADR 0015)",
+  "main": "kmp_wgpu_native.js",
+  "files": [
+    "kmp_wgpu_native.js",
+    "kmp_wgpu_native_bg.wasm"
+  ],
+  "license": "MIT"
+}

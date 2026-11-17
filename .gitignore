@@ -1,0 +1,12 @@
+.gradle/
+build/
+**/build/
+target/
+**/target/
+.idea/
+*.iml
+local.properties
+.DS_Store
+**/.DS_Store
+# Native 构建暂存（正式分发产物在 jniLibs / npm / ohpm / ohosApp/libs，勿忽略）
+kmp-wgpu-native/dist/

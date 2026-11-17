@@ -1,0 +1,9 @@
+{
+  "name": "@jlj/kmp-wgpu-native",
+  "version": "0.1.0",
+  "description": "kmp_wgpu_native shared library for HarmonyOS (ADR 0015)",
+  "main": "index.ets",
+  "author": "jlj",
+  "license": "MIT",
+  "compatibleSdkVersion": 12
+}
