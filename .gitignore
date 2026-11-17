@@ -8,5 +8,12 @@ target/
 local.properties
 .DS_Store
 **/.DS_Store
-# Native 构建暂存（正式分发产物在 jniLibs / npm / ohpm / ohosApp/libs，勿忽略）
-kmp-wgpu-native/dist/
+# Native：Rust target 忽略；iOS xcframework / ohpm.so / npm.wasm 入库分发
+kmp-wgpu-native/dist/*
+!kmp-wgpu-native/dist/ios/
+!kmp-wgpu-native/dist/ios/**
+ohosInclude/.gradle/
+
+# ohpm packed artifacts
+**/*.har
+

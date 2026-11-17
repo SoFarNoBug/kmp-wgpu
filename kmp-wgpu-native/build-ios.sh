@@ -46,21 +46,23 @@ rm -rf "$DIST"
 mkdir -p "$DIST/headers"
 cp "$HEADER" "$DIST/headers/kmp_wgpu_native.h"
 
-# Staging dirs for -create-xcframework (library + headers)
-STAGE_DEV="$DIST/_stage/ios-arm64"
-STAGE_SIM="$DIST/_stage/ios-arm64-sim"
+# Staging：.a 与 headers 分目录，避免 -headers 把 .a 再拷进 Headers（体积翻倍）
+STAGE_DEV_LIB="$DIST/_stage/ios-arm64"
+STAGE_SIM_LIB="$DIST/_stage/ios-arm64-sim"
+STAGE_DEV_HDR="$DIST/_stage/ios-arm64-headers"
+STAGE_SIM_HDR="$DIST/_stage/ios-arm64-sim-headers"
 rm -rf "$DIST/_stage"
-mkdir -p "$STAGE_DEV" "$STAGE_SIM"
-cp "$DEVICE_A" "$STAGE_DEV/$LIB_NAME"
-cp "$SIM_A" "$STAGE_SIM/$LIB_NAME"
-cp "$HEADER" "$STAGE_DEV/kmp_wgpu_native.h"
-cp "$HEADER" "$STAGE_SIM/kmp_wgpu_native.h"
+mkdir -p "$STAGE_DEV_LIB" "$STAGE_SIM_LIB" "$STAGE_DEV_HDR" "$STAGE_SIM_HDR"
+cp "$DEVICE_A" "$STAGE_DEV_LIB/$LIB_NAME"
+cp "$SIM_A" "$STAGE_SIM_LIB/$LIB_NAME"
+cp "$HEADER" "$STAGE_DEV_HDR/kmp_wgpu_native.h"
+cp "$HEADER" "$STAGE_SIM_HDR/kmp_wgpu_native.h"
 
 echo "==> xcodebuild -create-xcframework"
 rm -rf "$XCFRAMEWORK"
 xcodebuild -create-xcframework \
-  -library "$STAGE_DEV/$LIB_NAME" -headers "$STAGE_DEV" \
-  -library "$STAGE_SIM/$LIB_NAME" -headers "$STAGE_SIM" \
+  -library "$STAGE_DEV_LIB/$LIB_NAME" -headers "$STAGE_DEV_HDR" \
+  -library "$STAGE_SIM_LIB/$LIB_NAME" -headers "$STAGE_SIM_HDR" \
   -output "$XCFRAMEWORK"
 
 rm -rf "$DIST/_stage"

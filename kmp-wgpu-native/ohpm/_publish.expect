@@ -1,0 +1,39 @@
+#!/usr/bin/expect -f
+# ohpm questionHideable uses raw stdin and rejects any chunk containing \p{Cc}.
+# Sending "pass\r" as one write makes the WHOLE chunk drop → empty passphrase →
+# "The content of private key in the key_path error."
+# Fix: send passphrase one character at a time, then CR alone.
+set timeout 120
+set har [lindex $argv 0]
+set passfile [lindex $argv 1]
+set fp [open $passfile r]
+set pass [read $fp]
+close $fp
+# strip trailing newlines
+set pass [string trimright $pass "\r\n"]
+log_user 1
+spawn ohpm publish $har
+expect {
+  -re {what is your passphrase of the private key:} {}
+  timeout { puts "TIMEOUT waiting for passphrase prompt"; exit 2 }
+}
+# char-by-char so no chunk mixes printable + CR
+set len [string length $pass]
+for {set i 0} {$i < $len} {incr i} {
+  send -- "[string index $pass $i]"
+  # tiny pause helps some ttys coalesce less aggressively
+  after 5
+}
+send -- "\r"
+expect {
+  -re {what is your passphrase of the private key:} {
+    puts "FAIL: asked for passphrase again (key/pass still wrong or char feed failed)"
+    exit 3
+  }
+  eof
+}
+catch wait result
+set code [lindex $result 3]
+if {$code == ""} { set code 1 }
+puts "EXITCODE=$code"
+exit $code
