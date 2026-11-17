@@ -5,7 +5,7 @@ HarmonyOS 原生 wgpu 运行库：提供 `libkmp_wgpu_native.so` + 头文件，�
 ## 安装
 
 ```bash
-ohpm install @jlj/kmp-wgpu-native@0.1.0
+ohpm install @jlj/kmp-wgpu-native@0.1.1
 ```
 
 产物在包内 `src/main/`。Kotlin 侧坐标仍为 Maven `io.github.sofarnobug:kmp-wgpu*`；本包只提供鸿蒙 native `.so`。

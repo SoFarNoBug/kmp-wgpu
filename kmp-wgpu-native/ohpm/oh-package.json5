@@ -1,6 +1,6 @@
 {
   "name": "@jlj/kmp-wgpu-native",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "HarmonyOS 原生 wgpu 运行库（.so）：跨端 GPU 全屏渲染与 headless Compute 的底层 native",
   "main": "index.ets",
   "author": {
@@ -12,5 +12,6 @@
   "compatibleSdkType": "OpenHarmony",
   "repository": "https://github.com/SoFarNoBug/kmp-wgpu",
   "homepage": "https://github.com/SoFarNoBug/kmp-wgpu#readme",
-  "keywords": ["kmp-wgpu", "wgpu", "harmonyos", "ohos", "native"]
+  "keywords": ["kmp-wgpu", "wgpu", "harmonyos", "ohos", "native"],
+  "dependencies": {}
 }

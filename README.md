@@ -120,7 +120,7 @@ dependencies {
 |---|---|
 | Android | 打包 `jniLibs/**/libkmp_wgpu_native.so`（当前主推 arm64） |
 | iOS | `pod 'KmpWgpuNative', '0.1.0'`（请用 **xcworkspace**） |
-| 鸿蒙 | `ohpm install @jlj/kmp-wgpu-native@0.1.0` |
+| 鸿蒙 | `ohpm install @jlj/kmp-wgpu-native@0.1.1` |
 | H5 | `npm i @jlj/kmp-wgpu-native@0.1.0`（或拷贝 js + wasm） |
 
 完整步骤与避坑 → [docs/guide.md](docs/guide.md)。
