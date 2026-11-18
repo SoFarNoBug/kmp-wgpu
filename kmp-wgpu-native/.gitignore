@@ -1,2 +1,5 @@
 /target/
-/dist/
+# dist/ios 入库分发（Pod / Release）；其它 dist 产物本地生成
+/dist/*
+!/dist/ios/
+!/dist/ios/**
