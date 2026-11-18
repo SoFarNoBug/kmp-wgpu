@@ -77,8 +77,8 @@ cd kmp-wgpu-native
 - [x] Android arm64 `.so` + JNI Session API
 - [x] Android 真机 FullscreenPass 自定义片元（经 Holm 独立仓真机表勾过）
 - [x] iOS device+sim xcframework（已入库 + CocoaPods trunk `0.1.0`）
-- [x] 鸿蒙 aarch64 `libkmp_wgpu_native.so`（ohpm `0.1.1` 审核中）
+- [x] 鸿蒙 aarch64 `libkmp_wgpu_native.so`（ohpm `0.1.1` **已发**）
 - [ ] resize / destroy 专项压测
-- [x] H5 wasm 包体 ≈ 4.02 MiB（wgpu 30）；npm 包待 publish
+- [x] H5 wasm 包体 ≈ 4.02 MiB（wgpu 30）；npm `@sofarnobug/kmp-wgpu-native@0.1.0` **已发**
 
 分发渠道总表 → 根 [CHANGELOG.md](../CHANGELOG.md) / [CONTRIBUTING.md](../CONTRIBUTING.md)。

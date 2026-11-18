@@ -58,7 +58,7 @@ cd kmp-wgpu-native/ohpm
 ```
 
 口令经 hideable 读取时，**整段 `send "pass\r"` 会因控制字符 `\p{Cc}` 被拒**，上层常误报 `key_path error`。脚本用 `_publish.expect` **逐字符**喂入口令。详见脚本头注释。  
-**0.1.1 已提交，审核中**（公开源在过审前可能仍 404）。
+**0.1.1 已过审上架**（`ohpm info @jlj/kmp-wgpu-native` → `latest: 0.1.1`）。
 
 ### iOS CocoaPods
 
@@ -82,11 +82,11 @@ npm login
 npm publish --access public
 ```
 
-包名 `@jlj/kmp-wgpu-native`。仓内 wasm/js 已齐；**0.1.0 公共 registry 待发**。
+包名 `@sofarnobug/kmp-wgpu-native`（npm org=`sofarnobug`；ohpm 仍为 `@jlj/...`）。**0.1.0 已发**（`npm view` → `latest: 0.1.0`）。
 
 ### GitHub Release（可选）
 
-tag 推送后可在网页或 `gh release create 0.1.0` 补 Release 说明；与 Maven / Pod 无硬依赖。**0.1.0 Release 页待建**。
+tag 推送后可在网页或 `gh release create 0.1.0` 补 Release 说明；与 Maven / Pod 无硬依赖。**[0.1.0 Release](https://github.com/SoFarNoBug/kmp-wgpu/releases/tag/0.1.0) 已建**。
 
 ## 下游本地联调（可选）
 

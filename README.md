@@ -14,7 +14,7 @@
 | | |
 |---|---|
 | Maven | `io.github.sofarnobug:kmp-wgpu:0.1.0` · `kmp-wgpu-surface:0.1.0`（**已发**） |
-| Native | Android `.so` · CocoaPods `KmpWgpuNative` `0.1.0`（**trunk 已收**） · ohpm `@jlj/kmp-wgpu-native@0.1.1`（**审核中**） · npm 同名（**待发**） |
+| Native | Android `.so` · CocoaPods `KmpWgpuNative` `0.1.0`（**trunk 已收**） · ohpm `@jlj/kmp-wgpu-native@0.1.1`（**已发**） · npm `@sofarnobug/kmp-wgpu-native@0.1.0`（**已发**） |
 | 语言 | Kotlin Multiplatform 脸 + Rust/`wgpu` 实现 |
 | License | MIT |
 
@@ -120,8 +120,8 @@ dependencies {
 |---|---|---|
 | Android | 打包 `jniLibs/**/libkmp_wgpu_native.so`（当前主推 arm64） | 随 App / AAR 携带 |
 | iOS | `pod 'KmpWgpuNative', '0.1.0'`（请用 **xcworkspace**） | trunk 已收；CDN 未同步时可 `:git => …, :tag => '0.1.0'` |
-| 鸿蒙 | `ohpm install @jlj/kmp-wgpu-native@0.1.1` | **审核中**；未过审前用仓内 `ohpm/` 或本地 har |
-| H5 | `npm i @jlj/kmp-wgpu-native@0.1.0`（或拷贝 js + wasm） | npm **待发**；可暂拷 `kmp-wgpu-native/npm/` |
+| 鸿蒙 | `ohpm install @jlj/kmp-wgpu-native@0.1.1` | **已发** |
+| H5 | `npm i @sofarnobug/kmp-wgpu-native@0.1.0`（或拷贝 js + wasm） | **已发** |
 
 完整步骤、**每个公开 API 说明**、包体积与避坑 → [docs/guide.md](docs/guide.md)。
 
