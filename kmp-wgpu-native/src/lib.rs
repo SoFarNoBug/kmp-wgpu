@@ -18,6 +18,9 @@ mod primitives;
 mod fullscreen_pass;
 
 #[cfg(feature = "wgpu_backend")]
+mod model_pass;
+
+#[cfg(feature = "wgpu_backend")]
 mod compute_readback;
 
 #[cfg(all(target_arch = "wasm32", feature = "wgpu_backend"))]

@@ -35,6 +35,13 @@ object AndroidSurfaces {
         return FullscreenPass(gpu)
     }
 
+    /** 独立网格 ModelPass（非 Fullscreen）。 */
+    fun createModelPass(
+        surface: Surface,
+        width: Int,
+        height: Int,
+    ): ModelPass? = ModelPass.create(surface, width, height)
+
     fun lastCreateError(): String = androidPlatform().lastCreateError()
 }
 

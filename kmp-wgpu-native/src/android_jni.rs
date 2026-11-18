@@ -3,7 +3,8 @@
 
 use crate::compute_readback::HeadlessCompute;
 use crate::fullscreen_pass::FullscreenSessionCore;
-use jni::objects::{JClass, JFloatArray, JObject, JString, JValue, ReleaseMode};
+use crate::model_pass::ModelSessionCore;
+use jni::objects::{JClass, JFloatArray, JIntArray, JObject, JString, JValue, ReleaseMode};
 use jni::sys::{jboolean, jfloat, jint, jlong, jstring, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 use raw_window_handle::{
@@ -482,4 +483,294 @@ pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeComputeRe
             std::ptr::null_mut()
         }
     }
+}
+
+// --- ModelPass · 与 Fullscreen NativeSession 分表 ---
+
+struct ModelNativeSession {
+    core: ModelSessionCore,
+    window: AndroidWindowPtr,
+}
+
+fn box_model(session: ModelNativeSession) -> jlong {
+    Box::into_raw(Box::new(session)) as jlong
+}
+
+unsafe fn from_model<'a>(handle: jlong) -> Option<&'a mut ModelNativeSession> {
+    if handle == 0 {
+        return None;
+    }
+    Some(&mut *(handle as *mut ModelNativeSession))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeCreateModel(
+    mut env: JNIEnv,
+    _class: JClass,
+    surface: JObject,
+    width: jint,
+    height: jint,
+) -> jlong {
+    if surface.is_null() {
+        set_last_create_error("surface is null");
+        log_e(&mut env, "nativeCreateModel: surface is null");
+        return 0;
+    }
+    let window_ptr =
+        unsafe { ndk_sys::ANativeWindow_fromSurface(env.get_raw(), surface.as_raw()) };
+    if window_ptr.is_null() {
+        set_last_create_error("ANativeWindow_fromSurface returned null");
+        log_e(&mut env, "nativeCreateModel: ANativeWindow_fromSurface null");
+        return 0;
+    }
+
+    let w = width.max(1) as u32;
+    let h = height.max(1) as u32;
+    let target = AndroidSurfaceTarget {
+        window: AndroidWindowPtr(window_ptr),
+    };
+
+    let created = catch_unwind(AssertUnwindSafe(|| {
+        let mut desc =
+            wgpu::InstanceDescriptor::new_with_display_handle(Box::new(AndroidDisplayOwner));
+        desc.backends = wgpu::Backends::VULKAN | wgpu::Backends::GL;
+        let instance = wgpu::Instance::new(desc);
+        let target_unsafe =
+            unsafe { wgpu::SurfaceTargetUnsafe::from_display_and_window(&target, &target) }
+                .map_err(|e| format!("surface_target: {e}"))?;
+        let surface = unsafe { instance.create_surface_unsafe(target_unsafe) }
+            .map_err(|e| format!("create_surface: {e}"))?;
+        let core = pollster::block_on(ModelSessionCore::create_with_surface(
+            instance, surface, w, h, false,
+        ))?;
+        Ok::<ModelSessionCore, String>(core)
+    }));
+
+    match created {
+        Ok(Ok(core)) => {
+            clear_last_create_error();
+            box_model(ModelNativeSession {
+                core,
+                window: AndroidWindowPtr(window_ptr),
+            })
+        }
+        Ok(Err(e)) => {
+            set_last_create_error(&e);
+            log_e(&mut env, &format!("nativeCreateModel failed: {e}"));
+            release_window(window_ptr);
+            0
+        }
+        Err(panic) => {
+            let msg = format!("nativeCreateModel panic: {panic:?}");
+            set_last_create_error(&msg);
+            log_e(&mut env, &msg);
+            release_window(window_ptr);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeDestroyModel(
+    _env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+) {
+    if handle == 0 {
+        return;
+    }
+    let boxed = unsafe { Box::from_raw(handle as *mut ModelNativeSession) };
+    let ptr = boxed.window.0;
+    drop(boxed);
+    release_window(ptr);
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeResizeModel(
+    _env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    width: jint,
+    height: jint,
+) {
+    if let Some(s) = unsafe { from_model(handle) } {
+        s.core.resize(width.max(1) as u32, height.max(1) as u32);
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeSetMeshes(
+    mut env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    verts: JFloatArray,
+    indices: JIntArray,
+) -> jboolean {
+    let Some(s) = (unsafe { from_model(handle) }) else {
+        return JNI_FALSE;
+    };
+    let Ok(v_auto) = (unsafe { env.get_array_elements(&verts, ReleaseMode::NoCopyBack) }) else {
+        return JNI_FALSE;
+    };
+    let verts_vec: Vec<f32> = v_auto.iter().copied().collect();
+    drop(v_auto);
+    let Ok(i_auto) = (unsafe { env.get_array_elements(&indices, ReleaseMode::NoCopyBack) }) else {
+        return JNI_FALSE;
+    };
+    let indices_vec: Vec<u32> = i_auto.iter().map(|x| *x as u32).collect();
+    drop(i_auto);
+    match s.core.set_meshes(&verts_vec, &indices_vec) {
+        Ok(()) => JNI_TRUE,
+        Err(e) => {
+            log_e(&mut env, &format!("nativeSetMeshes: {e}"));
+            JNI_FALSE
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeSetFrame(
+    mut env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    mvp: JFloatArray,
+    color: JFloatArray,
+    lit: jboolean,
+    light_dir: JFloatArray,
+) {
+    let Some(s) = (unsafe { from_model(handle) }) else {
+        return;
+    };
+    let Ok(mvp_a) = (unsafe { env.get_array_elements(&mvp, ReleaseMode::NoCopyBack) }) else {
+        return;
+    };
+    if mvp_a.len() < 16 {
+        return;
+    }
+    let mut mvp16 = [0.0f32; 16];
+    mvp16.copy_from_slice(&mvp_a[..16]);
+    drop(mvp_a);
+    let Ok(c_a) = (unsafe { env.get_array_elements(&color, ReleaseMode::NoCopyBack) }) else {
+        return;
+    };
+    if c_a.len() < 4 {
+        return;
+    }
+    let mut color4 = [0.0f32; 4];
+    color4.copy_from_slice(&c_a[..4]);
+    drop(c_a);
+    let Ok(l_a) = (unsafe { env.get_array_elements(&light_dir, ReleaseMode::NoCopyBack) }) else {
+        return;
+    };
+    if l_a.len() < 3 {
+        return;
+    }
+    let mut ld = [0.0f32; 3];
+    ld.copy_from_slice(&l_a[..3]);
+    drop(l_a);
+    s.core
+        .set_frame(&mvp16, &color4, lit != JNI_FALSE, &ld);
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeSetPlayingModel(
+    _env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    playing: jboolean,
+) {
+    if let Some(s) = unsafe { from_model(handle) } {
+        s.core.set_playing(playing != JNI_FALSE);
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeTickModel(
+    _env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    dt_secs: jfloat,
+) -> jboolean {
+    let Some(s) = (unsafe { from_model(handle) }) else {
+        return JNI_FALSE;
+    };
+    match s.core.tick(dt_secs) {
+        Ok(()) => JNI_TRUE,
+        Err(_) => JNI_FALSE,
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeBackendIdModel(
+    env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+) -> jstring {
+    let id = unsafe { from_model(handle) }
+        .map(|s| s.core.backend_id)
+        .unwrap_or("wgpu-blocked");
+    env.new_string(id)
+        .map(|s| s.into_raw())
+        .unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeLastErrorCodeModel(
+    env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+) -> jstring {
+    let (code, _) = unsafe { from_model(handle) }
+        .map(|s| s.core.last_error())
+        .unwrap_or_default();
+    env.new_string(code)
+        .map(|s| s.into_raw())
+        .unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeLastErrorMessageModel(
+    env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+) -> jstring {
+    let (_, msg) = unsafe { from_model(handle) }
+        .map(|s| s.core.last_error())
+        .unwrap_or_default();
+    env.new_string(msg)
+        .map(|s| s.into_raw())
+        .unwrap_or(std::ptr::null_mut())
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_jlj_kmp_wgpu_AndroidWgpuPlatform_nativeDrainErrorsModel<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    handle: jlong,
+) -> jni::sys::jobjectArray {
+    let Some(s) = (unsafe { from_model(handle) }) else {
+        return env
+            .new_object_array(0, "java/lang/String", JObject::null())
+            .map(|a| a.into_raw())
+            .unwrap_or(std::ptr::null_mut());
+    };
+    let errs = s.core.drain_errors();
+    let len = (errs.len() * 2) as i32;
+    let Ok(arr) = env.new_object_array(len, "java/lang/String", JObject::null()) else {
+        return env
+            .new_object_array(0, "java/lang/String", JObject::null())
+            .map(|a| a.into_raw())
+            .unwrap_or(std::ptr::null_mut());
+    };
+    for (i, (code, msg)) in errs.into_iter().enumerate() {
+        let Ok(jc) = env.new_string(&code) else {
+            continue;
+        };
+        let Ok(jm) = env.new_string(&msg) else {
+            continue;
+        };
+        let _ = env.set_object_array_element(&arr, (i * 2) as i32, jc);
+        let _ = env.set_object_array_element(&arr, (i * 2 + 1) as i32, jm);
+    }
+    arr.into_raw()
 }

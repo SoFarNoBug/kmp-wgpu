@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- [ADD] Android `ModelPass`：独立网格 Present（`model_pass.rs` + JNI `nativeCreateModel` / `setMeshes` / `setFrame` / `tickModel`）；Kotlin `com.jlj.kmp.wgpu.surface.ModelPass`；与 FullscreenPass 分表。仅 Android 先通。
+
 ## 0.1.0 — 2026-11-17 / 11-18
 
 首发：Headless Compute 回读 + FullscreenPass Present（四端）；故意 ABI break（无 liquid / scene / ClearTri）。
