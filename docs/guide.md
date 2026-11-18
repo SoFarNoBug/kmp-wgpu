@@ -13,9 +13,9 @@
 | 端 | Maven | Native | 接完标准 |
 |---|---|---|---|
 | **Android** | `kmp-wgpu`（+ Present 时 `kmp-wgpu-surface`） | `jniLibs/**/libkmp_wgpu_native.so`（当前臂：arm64） | Headless 可回读；或 `AndroidSurfaces.createFullscreenPass` 出画，`backendId()` 可读 |
-| **iOS** | 同上（进 KN / KMP framework） | CocoaPods `KmpWgpuNative` **0.1.0** | `IosSurfaces` + Metal；开 **xcworkspace** |
-| **鸿蒙** | 同上（ohosArm64） | ohpm `@jlj/kmp-wgpu-native@0.1.1` | XComponent → `OHNativeWindow` → `OhosSurfaces`；外泵 OnFrame |
-| **H5** | 同上（JS） | npm `@jlj/kmp-wgpu-native@0.1.0`（或静态拷贝 js/wasm） | `JsSurfaces.create`；Headless **仅 Async** |
+| **iOS** | 同上（进 KN / KMP framework） | CocoaPods `KmpWgpuNative` **0.1.0**（trunk 已收；CDN 可能滞后） | `IosSurfaces` + Metal；开 **xcworkspace** |
+| **鸿蒙** | 同上（ohosArm64） | ohpm `@jlj/kmp-wgpu-native@0.1.1`（**审核中**） | XComponent → `OHNativeWindow` → `OhosSurfaces`；外泵 OnFrame |
+| **H5** | 同上（JS） | npm `@jlj/kmp-wgpu-native@0.1.0`（**待发**；可拷贝 js/wasm） | `JsSurfaces.create`；Headless **仅 Async** |
 
 ```kotlin
 repositories { mavenCentral() }

@@ -38,6 +38,8 @@ cd kmp-wgpu-native
 
 ## 发布
 
+**0.1.0 渠道状态**见根 [CHANGELOG.md](CHANGELOG.md)。发版前先打 **同版本 git tag**（CocoaPods `s.source` 按 tag 拉仓）。
+
 ### Maven Central
 
 ```bash
@@ -45,7 +47,8 @@ cd kmp-wgpu-native
 ./publish-maven.sh local    # mavenLocal 狗粮
 ```
 
-坐标：`io.github.sofarnobug:kmp-wgpu` / `kmp-wgpu-surface`。
+坐标：`io.github.sofarnobug:kmp-wgpu` / `kmp-wgpu-surface`。  
+**0.1.0 已发 Central。**
 
 ### 鸿蒙 ohpm
 
@@ -54,17 +57,36 @@ cd kmp-wgpu-native/ohpm
 ./publish-ohos.sh
 ```
 
-口令经 hideable 读取时，**整段 `send "pass\r"` 会因控制字符 `\p{Cc}` 被拒**，上层常误报 `key_path error`。脚本用 `_publish.expect` **逐字符**喂入口令。详见脚本头注释。
+口令经 hideable 读取时，**整段 `send "pass\r"` 会因控制字符 `\p{Cc}` 被拒**，上层常误报 `key_path error`。脚本用 `_publish.expect` **逐字符**喂入口令。详见脚本头注释。  
+**0.1.1 已提交，审核中**（公开源在过审前可能仍 404）。
 
 ### iOS CocoaPods
 
-- podspec：仓根 `KmpWgpuNative.podspec`（`kmp-wgpu-native/` 下为转发 stub）
-- 发布：`pod trunk push KmpWgpuNative.podspec --allow-warnings`
-- 需可用的 `pod` / trunk 与 git tag；xcframework 由 `build-ios.sh` 产出并入库 `kmp-wgpu-native/dist/ios/`
+- podspec：**仓根** `KmpWgpuNative.podspec`（路径相对仓库根）
+- xcframework：`build-ios.sh` → 入库 `kmp-wgpu-native/dist/ios/`（须进 git，供 tag 检出）
+- iOS 部署下限 **15.0**；模拟器仅 arm64（排除 `x86_64`）
+- 发布：
+
+```bash
+pod trunk push KmpWgpuNative.podspec --allow-warnings
+```
+
+**0.1.0 已上 trunk**（`pod trunk info KmpWgpuNative` / trunk API）；CDN / `pod search` 可能滞后数小时。  
+注意：trunk 偶发 “internal server error” 后可能其实已入库；重推会报 `duplicate entry`，以 trunk API 为准，勿强行改版本号重发。
 
 ### H5 npm
 
-- 包：`kmp-wgpu-native/npm` → `@jlj/kmp-wgpu-native`
+```bash
+cd kmp-wgpu-native/npm
+npm login
+npm publish --access public
+```
+
+包名 `@jlj/kmp-wgpu-native`。仓内 wasm/js 已齐；**0.1.0 公共 registry 待发**。
+
+### GitHub Release（可选）
+
+tag 推送后可在网页或 `gh release create 0.1.0` 补 Release 说明；与 Maven / Pod 无硬依赖。**0.1.0 Release 页待建**。
 
 ## 下游本地联调（可选）
 
@@ -85,6 +107,7 @@ kmp.wgpu.local=true
 |---|---|
 | 路人 | 根 `README.md` |
 | 接入 | `docs/guide.md`（含公开 API 全表，对齐 Holm guide 粒度） |
+| 版本 / 渠道状态 | 根 `CHANGELOG.md` |
 | 开发者 / 维护 | 本文件 |
 
 根 README 场景表用 **`已有` / `规划中` / `非目标`**；后端表以运行时 `backendId()` 为准：鸿蒙写清 GLES 实测与 Vulkan 适配缺口，Android **不写死** Vulkan。
