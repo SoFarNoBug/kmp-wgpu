@@ -6,8 +6,13 @@ Pod::Spec.new do |s|
   s.homepage         = 'https://github.com/SoFarNoBug/kmp-wgpu'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'jlj' => '1396275290@qq.com' }
-  s.platform         = :ios, '12.0'
+  # Xcode 16+/27 SDK：模拟器最低部署目标 15.0
+  s.platform         = :ios, '15.0'
   s.source           = { :git => 'https://github.com/SoFarNoBug/kmp-wgpu.git', :tag => s.version.to_s }
-  s.vendored_frameworks = 'dist/ios/KmpWgpuNative.xcframework'
+  # 路径相对仓库根（本 podspec 放在仓根）
+  s.vendored_frameworks = 'kmp-wgpu-native/dist/ios/KmpWgpuNative.xcframework'
   s.requires_arc     = true
+  # 当前 xcframework 仅 arm64（含 sim）；排除 Intel 模拟器切片以免 lint/链接失败
+  s.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'x86_64' }
+  s.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'x86_64' }
 end

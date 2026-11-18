@@ -58,8 +58,9 @@ cd kmp-wgpu-native/ohpm
 
 ### iOS CocoaPods
 
-- podspec：`kmp-wgpu-native/KmpWgpuNative.podspec`
-- 需可用的 `pod` / trunk 与 git tag；xcframework 由 `build-ios.sh` 产出
+- podspec：仓根 `KmpWgpuNative.podspec`（`kmp-wgpu-native/` 下为转发 stub）
+- 发布：`pod trunk push KmpWgpuNative.podspec --allow-warnings`
+- 需可用的 `pod` / trunk 与 git tag；xcframework 由 `build-ios.sh` 产出并入库 `kmp-wgpu-native/dist/ios/`
 
 ### H5 npm
 
