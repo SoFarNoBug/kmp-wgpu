@@ -5,6 +5,16 @@ package com.jlj.kmp.wgpu
 import kmp.wgpu.native.cinterop.kmp_wgpu_abi_version
 import kmp.wgpu.native.cinterop.kmp_wgpu_has_wgpu
 import kmp.wgpu.native.cinterop.kmp_wgpu_last_create_error
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_backend_id
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_create_metal
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_destroy
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_last_error_code
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_last_error_message
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_resize
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_set_frame
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_set_meshes
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_set_playing
+import kmp.wgpu.native.cinterop.kmp_wgpu_model_tick
 import kmp.wgpu.native.cinterop.kmp_wgpu_session_backend_id
 import kmp.wgpu.native.cinterop.kmp_wgpu_session_create_metal
 import kmp.wgpu.native.cinterop.kmp_wgpu_session_destroy
@@ -18,10 +28,12 @@ import kotlin.concurrent.Volatile
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toKString
+import kotlinx.cinterop.usePinned
 
 /**
  * @CreateDate: 2026/11/16
@@ -149,6 +161,125 @@ object IosWgpuPlatform : WgpuPlatform {
         if (handle == 0L) return emptyList()
         val code = lastErrorCode(handle)
         val msg = lastErrorMessage(handle)
+        if (code.isBlank() && msg.isBlank()) return emptyList()
+        return listOf(code to msg)
+    }
+
+    // --- ModelPass（与 Fullscreen Session 分表）---
+
+    fun createModelFromMetalLayer(layer: COpaquePointer?, width: Int, height: Int): Long {
+        if (layer == null || !isLibraryLoaded()) return 0L
+        return runCatching {
+            kmp_wgpu_model_create_metal(
+                layer,
+                width.coerceAtLeast(1).toUInt(),
+                height.coerceAtLeast(1).toUInt(),
+            ).toLong()
+        }.getOrDefault(0L)
+    }
+
+    fun destroyModel(handle: Long) {
+        if (handle == 0L || !isLibraryLoaded()) return
+        runCatching { kmp_wgpu_model_destroy(handle.toULong()) }
+    }
+
+    fun resizeModel(handle: Long, width: Int, height: Int) {
+        if (handle == 0L) return
+        runCatching {
+            kmp_wgpu_model_resize(
+                handle.toULong(),
+                width.coerceAtLeast(1).toUInt(),
+                height.coerceAtLeast(1).toUInt(),
+            )
+        }
+    }
+
+    fun setMeshesModel(handle: Long, verts: FloatArray, indices: IntArray): Boolean {
+        if (handle == 0L) return false
+        return runCatching {
+            if (verts.isEmpty() || indices.isEmpty()) {
+                kmp_wgpu_model_set_meshes(handle.toULong(), null, 0u, null, 0u) == 1u
+            } else {
+                verts.usePinned { vp ->
+                    indices.usePinned { ip ->
+                        kmp_wgpu_model_set_meshes(
+                            handle.toULong(),
+                            vp.addressOf(0),
+                            verts.size.toUInt(),
+                            ip.addressOf(0),
+                            indices.size.toUInt(),
+                        ) == 1u
+                    }
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    fun setFrameModel(
+        handle: Long,
+        mvp: FloatArray,
+        color: FloatArray,
+        lit: Boolean,
+        lightDir: FloatArray,
+    ) {
+        if (handle == 0L) return
+        if (mvp.size < 16 || color.size < 4 || lightDir.size < 3) return
+        runCatching {
+            mvp.usePinned { mp ->
+                color.usePinned { cp ->
+                    lightDir.usePinned { lp ->
+                        kmp_wgpu_model_set_frame(
+                            handle.toULong(),
+                            mp.addressOf(0),
+                            cp.addressOf(0),
+                            if (lit) 1u else 0u,
+                            lp.addressOf(0),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun setPlayingModel(handle: Long, playing: Boolean) {
+        if (handle == 0L || !isLibraryLoaded()) return
+        runCatching {
+            kmp_wgpu_model_set_playing(handle.toULong(), if (playing) 1u else 0u)
+        }
+    }
+
+    fun tickModel(handle: Long, dtSecs: Float): Boolean {
+        if (handle == 0L) return false
+        return runCatching {
+            kmp_wgpu_model_tick(handle.toULong(), dtSecs) == 1u
+        }.getOrDefault(false)
+    }
+
+    fun backendIdModel(handle: Long): String {
+        if (handle == 0L) return "wgpu-blocked"
+        return readCStringBuf { buf, len ->
+            kmp_wgpu_model_backend_id(handle.toULong(), buf, len)
+        }.ifBlank { "wgpu-m0" }
+    }
+
+    fun lastErrorCodeModel(handle: Long): String {
+        if (handle == 0L) return ""
+        return readCStringBuf { buf, len ->
+            kmp_wgpu_model_last_error_code(handle.toULong(), buf, len)
+        }
+    }
+
+    fun lastErrorMessageModel(handle: Long): String {
+        if (handle == 0L) return ""
+        return readCStringBuf { buf, len ->
+            kmp_wgpu_model_last_error_message(handle.toULong(), buf, len)
+        }
+    }
+
+    fun drainErrorsModel(handle: Long): List<Pair<String, String>> {
+        if (handle == 0L) return emptyList()
+        val code = lastErrorCodeModel(handle)
+        val msg = lastErrorMessageModel(handle)
         if (code.isBlank() && msg.isBlank()) return emptyList()
         return listOf(code to msg)
     }

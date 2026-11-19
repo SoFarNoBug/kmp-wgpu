@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- [ADD] Android `ModelPass`：独立网格 Present（`model_pass.rs` + JNI `nativeCreateModel` / `setMeshes` / `setFrame` / `tickModel`）；Kotlin `com.jlj.kmp.wgpu.surface.ModelPass`；与 FullscreenPass 分表。仅 Android 先通。
+- [ADD] iOS `ModelPass`：`kmp_wgpu_model_*` Metal C ABI + `ModelPass` iosMain；重建 `KmpWgpuNative.xcframework`（与 Fullscreen 分表）。
+- [ADD] Android `ModelPass`：独立网格 Present（`model_pass.rs` + JNI `nativeCreateModel` / `setMeshes` / `setFrame` / `tickModel`）；Kotlin `com.jlj.kmp.wgpu.surface.ModelPass`；与 FullscreenPass 分表。
 
 ## 0.1.0 — 2026-11-17 / 11-18
 
