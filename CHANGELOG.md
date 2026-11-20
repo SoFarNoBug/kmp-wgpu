@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- [ADD] Ohos `ModelPass`：`kmp_wgpu_model_create_ohos` + 共用 `kmp_wgpu_model_*`；`ModelPass` / `WgpuOhos` ohosArm64（ADR 0019）。
 - [ADD] iOS `ModelPass`：`kmp_wgpu_model_*` Metal C ABI + `ModelPass` iosMain；重建 `KmpWgpuNative.xcframework`（与 Fullscreen 分表）。
 - [ADD] Android `ModelPass`：独立网格 Present（`model_pass.rs` + JNI `nativeCreateModel` / `setMeshes` / `setFrame` / `tickModel`）；Kotlin `com.jlj.kmp.wgpu.surface.ModelPass`；与 FullscreenPass 分表。
 
@@ -24,3 +25,5 @@
 
 - iOS Pod：最低部署目标 **15.0**；xcframework 仅 **arm64**（含 sim），podspec 排除模拟器 `x86_64`
 - 鸿蒙 ohpm `0.1.1`：相对 `0.1.0` 补 `dependencies: {}`（审核必填）；**已过审**，`ohpm install` 可走公开源
+
+- [ADD] H5/Wasm `ModelPass`：`ModelPass.js.kt` + `build-wasm.sh`（与 Fullscreen 分表；供 Holm ADR 0020）。

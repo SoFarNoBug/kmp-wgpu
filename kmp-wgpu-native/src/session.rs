@@ -1,8 +1,9 @@
 //! H5 wasm 泵帧 Session：包装 [`crate::fullscreen_pass`]；HtmlCanvas / OffscreenCanvas。
-//! 另：headless Compute（v1.1）[`HeadlessComputeSession`]，无 canvas。
+//! 另：headless Compute（v1.1）[`HeadlessComputeSession`]；ModelPass [`KmpWgpuModelSession`]。
 
 use crate::compute_readback::{HeadlessCompute, SAMPLE_DOUBLE_WGSL};
 use crate::fullscreen_pass::FullscreenSessionCore;
+use crate::model_pass::ModelSessionCore;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlCanvasElement, OffscreenCanvas};
@@ -169,6 +170,158 @@ impl HeadlessComputeSession {
         let arr = js_sys::Float32Array::new_with_length(out.len() as u32);
         arr.copy_from(&out);
         Ok(arr)
+    }
+
+    pub fn destroy(self) {
+        // drop
+    }
+}
+
+/// ModelPass · 独立网格 Present（ADR 0020）；与 [`KmpWgpuSession`] 分型，勿混用。
+#[wasm_bindgen]
+pub struct KmpWgpuModelSession {
+    inner: ModelSessionCore,
+}
+
+#[wasm_bindgen]
+impl KmpWgpuModelSession {
+    /// 异步创建；仅 **BROWSER_WEBGPU**（无 WebGPU → 失败，禁止 WebGL 冒充）。
+    pub async fn create(target: JsValue) -> Result<KmpWgpuModelSession, JsValue> {
+        console_error_panic_hook::set_once();
+        if let Ok(canvas) = target.clone().dyn_into::<HtmlCanvasElement>() {
+            let width = canvas.width().max(1);
+            let height = canvas.height().max(1);
+            return Self::create_with_surface(
+                wgpu::SurfaceTarget::Canvas(canvas),
+                width,
+                height,
+            )
+            .await;
+        }
+        if let Ok(canvas) = target.dyn_into::<OffscreenCanvas>() {
+            let width = canvas.width().max(1);
+            let height = canvas.height().max(1);
+            return Self::create_with_surface(
+                wgpu::SurfaceTarget::OffscreenCanvas(canvas),
+                width,
+                height,
+            )
+            .await;
+        }
+        Err(JsValue::from_str(
+            "model create: target must be HtmlCanvasElement or OffscreenCanvas",
+        ))
+    }
+
+    async fn create_with_surface(
+        target: wgpu::SurfaceTarget<'static>,
+        width: u32,
+        height: u32,
+    ) -> Result<KmpWgpuModelSession, JsValue> {
+        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+        // Honest: WebGPU only — no GL stand-in for ModelPass (ADR 0020).
+        desc.backends = wgpu::Backends::BROWSER_WEBGPU;
+        let instance = wgpu::Instance::new(desc);
+        let surface = instance
+            .create_surface(target)
+            .map_err(|e| JsValue::from_str(&format!("model create_surface: {e}")))?;
+        let inner =
+            ModelSessionCore::create_with_surface(instance, surface, width, height, true)
+                .await
+                .map_err(|e| JsValue::from_str(&e))?;
+        Ok(Self { inner })
+    }
+
+    #[wasm_bindgen(js_name = backendId)]
+    pub fn backend_id(&self) -> String {
+        self.inner.backend_id.to_string()
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.inner.resize(width, height);
+    }
+
+    /// interleaved pos3+nrm3；indices 为三角索引（u32）。
+    #[wasm_bindgen(js_name = setMeshes)]
+    pub fn set_meshes(
+        &mut self,
+        verts: js_sys::Float32Array,
+        indices: js_sys::Uint32Array,
+    ) -> Result<(), JsValue> {
+        let mut v = vec![0f32; verts.length() as usize];
+        verts.copy_to(&mut v);
+        let mut i = vec![0u32; indices.length() as usize];
+        indices.copy_to(&mut i);
+        self.inner
+            .set_meshes(&v, &i)
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    #[wasm_bindgen(js_name = setFrame)]
+    pub fn set_frame(
+        &mut self,
+        mvp: js_sys::Float32Array,
+        color: js_sys::Float32Array,
+        lit: bool,
+        light_dir: js_sys::Float32Array,
+    ) -> Result<(), JsValue> {
+        if mvp.length() < 16 || color.length() < 4 || light_dir.length() < 3 {
+            return Err(JsValue::from_str(
+                "setFrame: need mvp[16], color[4], lightDir[3]",
+            ));
+        }
+        let mut mvp_arr = [0f32; 16];
+        for i in 0..16 {
+            mvp_arr[i] = mvp.get_index(i as u32);
+        }
+        let mut color_arr = [0f32; 4];
+        for i in 0..4 {
+            color_arr[i] = color.get_index(i as u32);
+        }
+        let ld = [
+            light_dir.get_index(0),
+            light_dir.get_index(1),
+            light_dir.get_index(2),
+        ];
+        self.inner.set_frame(&mvp_arr, &color_arr, lit, &ld);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = setPlaying)]
+    pub fn set_playing(&mut self, playing: bool) {
+        self.inner.set_playing(playing);
+    }
+
+    pub fn tick(&mut self, dt_secs: f32) -> Result<(), JsValue> {
+        self.inner
+            .tick(dt_secs)
+            .map_err(|e| JsValue::from_str(&e))
+    }
+
+    #[wasm_bindgen(js_name = lastErrorCode)]
+    pub fn last_error_code(&self) -> String {
+        self.inner.last_error().0
+    }
+
+    #[wasm_bindgen(js_name = lastErrorMessage)]
+    pub fn last_error_message(&self) -> String {
+        self.inner.last_error().1
+    }
+
+    #[wasm_bindgen(js_name = drainErrors)]
+    pub fn drain_errors(&self) -> js_sys::Array {
+        let out = js_sys::Array::new();
+        for (code, message) in self.inner.drain_errors() {
+            let obj = js_sys::Object::new();
+            let _ = js_sys::Reflect::set(&obj, &JsValue::from_str("code"), &JsValue::from_str(&code));
+            let _ = js_sys::Reflect::set(
+                &obj,
+                &JsValue::from_str("message"),
+                &JsValue::from_str(&message),
+            );
+            out.push(&obj);
+        }
+        out
     }
 
     pub fn destroy(self) {

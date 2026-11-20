@@ -1,9 +1,10 @@
 //! Ohos C Session ABI（ADR 0010）：OHNativeWindow → wgpu Vulkan Surface；宿主 OnFrame 外泵 tick。
-//! Headless Compute（ADR 0013 v1.1）同文件导出，与 Present Session 分表。
+//! Headless Compute（ADR 0013 v1.1）与 ModelPass（ADR 0019）同文件导出，与 Present Session 分表。
 //! 所有对外 C 入口 `catch_unwind`：非法 WGSL 等 panic 不得穿 FFI 把进程 abort。
 
 use crate::compute_readback::HeadlessCompute;
 use crate::fullscreen_pass::FullscreenSessionCore;
+use crate::model_pass::ModelSessionCore;
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, OhosDisplayHandle,
     OhosNdkWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle,
@@ -291,6 +292,240 @@ pub extern "C" fn kmp_wgpu_session_last_error_message(
 ) -> u32 {
     let result = catch_unwind(AssertUnwindSafe(|| {
         let (_, msg) = unsafe { from_handle(handle) }
+            .map(|s| s.core.last_error())
+            .unwrap_or_default();
+        copy_utf8(&msg, out_buf, out_len)
+    }));
+    match result {
+        Ok(v) => v,
+        Err(_) => 0,
+    }
+}
+
+// --- ModelPass · 与 Fullscreen NativeSession / Headless 分表 ---
+
+struct ModelNativeSession {
+    core: ModelSessionCore,
+    _window: OhosWindowPtr,
+}
+
+fn box_model(session: ModelNativeSession) -> u64 {
+    Box::into_raw(Box::new(session)) as u64
+}
+
+unsafe fn from_model<'a>(handle: u64) -> Option<&'a mut ModelNativeSession> {
+    if handle == 0 {
+        return None;
+    }
+    Some(&mut *(handle as *mut ModelNativeSession))
+}
+
+/// Create ModelPass bound to OHNativeWindow*. Window must outlive the session; Rust does not retain it.
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_create_ohos(
+    native_window: *mut c_void,
+    width: u32,
+    height: u32,
+) -> u64 {
+    if native_window.is_null() {
+        set_last_create_error("native_window is null");
+        return 0;
+    }
+    let w = width.max(1);
+    let h = height.max(1);
+    let target = OhosSurfaceTarget {
+        window: OhosWindowPtr(native_window),
+    };
+
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let mut desc =
+            wgpu::InstanceDescriptor::new_with_display_handle(Box::new(OhosDisplayOwner));
+        desc.backends = wgpu::Backends::VULKAN | wgpu::Backends::GL;
+        let instance = wgpu::Instance::new(desc);
+        // SAFETY: caller guarantees a live OHNativeWindow* for the session lifetime.
+        let target_unsafe =
+            unsafe { wgpu::SurfaceTargetUnsafe::from_display_and_window(&target, &target) }
+                .map_err(|e| format!("surface_target: {e}"))?;
+        let surface = unsafe { instance.create_surface_unsafe(target_unsafe) }
+            .map_err(|e| format!("create_surface: {e}"))?;
+        let core = pollster::block_on(ModelSessionCore::create_with_surface(
+            instance, surface, w, h, false,
+        ))?;
+        Ok::<ModelSessionCore, String>(core)
+    }));
+
+    match result {
+        Ok(Ok(core)) => {
+            clear_last_create_error();
+            box_model(ModelNativeSession {
+                core,
+                _window: OhosWindowPtr(native_window),
+            })
+        }
+        Ok(Err(e)) => {
+            set_last_create_error(e);
+            0
+        }
+        Err(panic) => {
+            set_last_create_error(format!("model_create_ohos panic: {panic:?}"));
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_destroy(handle: u64) {
+    if handle == 0 {
+        return;
+    }
+    let _ = catch_unwind(AssertUnwindSafe(|| unsafe {
+        drop(Box::from_raw(handle as *mut ModelNativeSession));
+    }));
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_resize(handle: u64, width: u32, height: u32) {
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        if let Some(s) = unsafe { from_model(handle) } {
+            s.core.resize(width.max(1), height.max(1));
+        }
+    }));
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_set_meshes(
+    handle: u64,
+    verts: *const f32,
+    vert_floats: u32,
+    indices: *const i32,
+    index_count: u32,
+) -> u32 {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let Some(s) = (unsafe { from_model(handle) }) else {
+            return 0u32;
+        };
+        if vert_floats == 0 || index_count == 0 {
+            return match s.core.set_meshes(&[], &[]) {
+                Ok(()) => 1u32,
+                Err(_) => 0u32,
+            };
+        }
+        if verts.is_null() || indices.is_null() {
+            return 0u32;
+        }
+        let verts_slice = unsafe { std::slice::from_raw_parts(verts, vert_floats as usize) };
+        let indices_i32 = unsafe { std::slice::from_raw_parts(indices, index_count as usize) };
+        let indices_u32: Vec<u32> = indices_i32.iter().map(|x| *x as u32).collect();
+        match s.core.set_meshes(verts_slice, &indices_u32) {
+            Ok(()) => 1u32,
+            Err(_) => 0u32,
+        }
+    }));
+    match result {
+        Ok(v) => v,
+        Err(_) => 0,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_set_frame(
+    handle: u64,
+    mvp16: *const f32,
+    color4: *const f32,
+    lit: u32,
+    light_dir3: *const f32,
+) {
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        let Some(s) = (unsafe { from_model(handle) }) else {
+            return;
+        };
+        if mvp16.is_null() || color4.is_null() || light_dir3.is_null() {
+            return;
+        }
+        let mvp = unsafe { std::slice::from_raw_parts(mvp16, 16) };
+        let color = unsafe { std::slice::from_raw_parts(color4, 4) };
+        let light = unsafe { std::slice::from_raw_parts(light_dir3, 3) };
+        let mut mvp_arr = [0.0f32; 16];
+        mvp_arr.copy_from_slice(mvp);
+        let mut color_arr = [0.0f32; 4];
+        color_arr.copy_from_slice(color);
+        let mut light_arr = [0.0f32; 3];
+        light_arr.copy_from_slice(light);
+        s.core
+            .set_frame(&mvp_arr, &color_arr, lit != 0, &light_arr);
+    }));
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_set_playing(handle: u64, playing: u32) {
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        if let Some(s) = unsafe { from_model(handle) } {
+            s.core.set_playing(playing != 0);
+        }
+    }));
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_tick(handle: u64, dt_secs: f32) -> u32 {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let Some(s) = (unsafe { from_model(handle) }) else {
+            return 0u32;
+        };
+        match s.core.tick(dt_secs) {
+            Ok(()) => 1u32,
+            Err(_) => 0u32,
+        }
+    }));
+    match result {
+        Ok(v) => v,
+        Err(_) => 0,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_backend_id(
+    handle: u64,
+    out_buf: *mut c_char,
+    out_len: u32,
+) -> u32 {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let id = unsafe { from_model(handle) }
+            .map(|s| s.core.backend_id)
+            .unwrap_or("wgpu-blocked");
+        copy_utf8(id, out_buf, out_len)
+    }));
+    match result {
+        Ok(v) => v,
+        Err(_) => 0,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_last_error_code(
+    handle: u64,
+    out_buf: *mut c_char,
+    out_len: u32,
+) -> u32 {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let (code, _) = unsafe { from_model(handle) }
+            .map(|s| s.core.last_error())
+            .unwrap_or_default();
+        copy_utf8(&code, out_buf, out_len)
+    }));
+    match result {
+        Ok(v) => v,
+        Err(_) => 0,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn kmp_wgpu_model_last_error_message(
+    handle: u64,
+    out_buf: *mut c_char,
+    out_len: u32,
+) -> u32 {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let (_, msg) = unsafe { from_model(handle) }
             .map(|s| s.core.last_error())
             .unwrap_or_default();
         copy_utf8(&msg, out_buf, out_len)

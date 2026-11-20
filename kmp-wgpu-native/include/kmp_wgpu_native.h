@@ -96,10 +96,11 @@ uint32_t kmp_wgpu_headless_compute_readback(
 
 /**
  * ModelPass — mesh Present Session（与 Fullscreen Session / Headless 分表）。
- * Create bound to CAMetalLayer (iOS). Layer not retained; must outlive handle.
+ * Create bound to CAMetalLayer (iOS) or OHNativeWindow (Ohos). Surface not retained; must outlive handle.
  * Failures: handle 0 + kmp_wgpu_last_create_error.
  */
 uint64_t kmp_wgpu_model_create_metal(void *metal_layer, uint32_t width, uint32_t height);
+uint64_t kmp_wgpu_model_create_ohos(void *native_window, uint32_t width, uint32_t height);
 
 void kmp_wgpu_model_destroy(uint64_t handle);
 

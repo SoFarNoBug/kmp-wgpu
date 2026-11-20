@@ -1,27 +1,27 @@
 /**
- * Ohos / KBA composite for Holm `includeBuild` .
+ * Ohos / KBA composite for Holm `includeBuild`.
  *
  * Main `settings.gradle.kts` publishes Android/iOS/JS with stock Kotlin and has no
  * `ohosArm64`. Holm `settings.ohos` + `kmp.wgpu.local=true` must includeBuild **this**
  * directory so modules load `build.ohos.gradle.kts` (Kotlin 2.0.21-KBA-010).
  */
 pluginManagement {
- repositories {
- google
- gradlePluginPortal
- mavenCentral
- mavenLocal
- maven { url = uri("https://mirrors.tencent.com/nexus/repository/maven-tencent/") }
- }
+    repositories {
+        google()
+        gradlePluginPortal()
+        mavenCentral()
+        mavenLocal()
+        maven { url = uri("https://mirrors.tencent.com/nexus/repository/maven-tencent/") }
+    }
 }
 
 dependencyResolutionManagement {
- repositories {
- google
- mavenCentral
- mavenLocal
- maven { url = uri("https://mirrors.tencent.com/nexus/repository/maven-tencent/") }
- }
+    repositories {
+        google()
+        mavenCentral()
+        mavenLocal()
+        maven { url = uri("https://mirrors.tencent.com/nexus/repository/maven-tencent/") }
+    }
 }
 
 rootProject.name = "kmp-wgpu-ohos"
